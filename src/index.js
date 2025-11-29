@@ -5,8 +5,8 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('app'))
-// const APP_ROOT_FOLDER = path.resolve("src/app");
-const APP_ROOT_FOLDER = "src/app"
+const APP_ROOT_FOLDER = path.resolve("app");
+// const APP_ROOT_FOLDER = "src/app"
 const dynamicRouteChecker = async (folder) => {
     try {
         const files = await fs.promises.readdir(APP_ROOT_FOLDER + "/" + folder);
@@ -80,8 +80,8 @@ function mapRoutes(dirPath) {
             // If it's a file, set the file path as key and file name or stats as value
             result.set(filePath, {
                 name: file,
-                path: filePath.replace("src", "."),
-                module: import(filePath.replace("src", ".")),
+                path: filePath,
+                module: import(filePath),
                 size: stat.size,
                 modified: stat.mtime
             });
@@ -93,12 +93,11 @@ function mapRoutes(dirPath) {
 const routes = mapRoutes(APP_ROOT_FOLDER);
 const getRoute = async (req, res, filePath, isDynamicFile = false) => {
     try {
-        console.log(filePath);
         let module;
         let file = routes.get(filePath);
 
         if (isDynamicFile) {
-            module = await import(filePath.replace("src", "."))
+            module = await import(filePath)
         }
         else {
             module = await file.module;
@@ -122,7 +121,9 @@ const getRoute = async (req, res, filePath, isDynamicFile = false) => {
 app.all("/app/*", async (req, res) => {
     try {
         let isDynamicFile = false;
-        let filePath = APP_ROOT_FOLDER + sanitizePath(req.url.replace("/app", ""));
+        // let filePath = APP_ROOT_FOLDER + sanitizePath(req.url.replace("/app", ""));
+        let filePath = path.join(APP_ROOT_FOLDER, sanitizePath(req.url.replace("/app", "")));
+        // filePath.replace(/\/\//g, "/");
         const isFile = fs.existsSync(filePath + ".js");
         /*
         Three cases to watch for
@@ -147,7 +148,7 @@ app.all("/app/*", async (req, res) => {
                 req.params[dynamicRouteCheckResult.param] = splitedFilePath[splitedFilePath.length - 1];
             }
             else {
-                filePath += "/index.js";
+                filePath += "index.js";
             }
         }
         await getRoute(req, res, filePath, isDynamicFile);
